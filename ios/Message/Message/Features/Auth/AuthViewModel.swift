@@ -8,6 +8,7 @@ final class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var isAuthenticated = false
     @Published var isLoading = false
+    @Published var isRestoringSession = true
     @Published var errorMessage: String?
 
     private let authService = AuthService()
@@ -20,6 +21,8 @@ final class AuthViewModel: ObservableObject {
     }
 
     func restoreSession() async {
+        defer { isRestoringSession = false }
+
         guard let token = keychainService.getToken() else { return }
 
         do {
@@ -37,6 +40,8 @@ final class AuthViewModel: ObservableObject {
         errorMessage = nil
         isLoading = true
 
+        defer { isLoading = false }
+
         do {
             let response = try await authService.login(username: username, password: password)
             keychainService.saveToken(response.token)
@@ -45,13 +50,13 @@ final class AuthViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-
-        isLoading = false
     }
 
     func register() async {
         errorMessage = nil
         isLoading = true
+
+        defer { isLoading = false }
 
         do {
             let response = try await authService.register(username: username, password: password)
@@ -61,8 +66,6 @@ final class AuthViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-
-        isLoading = false
     }
 
     func logout() {
@@ -71,5 +74,6 @@ final class AuthViewModel: ObservableObject {
         password = ""
         currentUser = nil
         isAuthenticated = false
+        errorMessage = nil
     }
 }
