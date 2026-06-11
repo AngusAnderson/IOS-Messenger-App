@@ -1,49 +1,107 @@
-from django.contrib.auth.models import User
-from rest_framework import generics, permissions, status
+import random
+
+from django.conf import settings
+from django.core.mail import send_mail
+from django.utils import timezone
+
+from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .serializers import RegisterSerializer, UserSerializer
+from .models import User, EmailOTP
+from .serializers import (
+    RequestEmailOTPSerializer,
+    VerifyEmailOTPSerializer,
+    UserSerializer,
+)
 
 
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
-    permission_classes = [permissions.AllowAny]
+def generate_otp():
+    return f"{random.randint(0, 999999):06d}"
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
 
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def request_email_otp(request):
+    serializer = RequestEmailOTPSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    email = serializer.validated_data["email"].lower()
+    code = generate_otp()
+
+    EmailOTP.objects.filter(email=email, is_used=False).update(is_used=True)
+
+    otp = EmailOTP.objects.create(
+        email=email,
+        code=code,
+        expires_at=EmailOTP.expiry_time(minutes=10),
+    )
+
+    subject = "Your login code"
+    message = f"Your verification code is {otp.code}. It expires in 10 minutes."
+
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )
+
+    return Response(
+        {"detail": "Verification code sent to email."},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def verify_email_otp(request):
+    serializer = VerifyEmailOTPSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    email = serializer.validated_data["email"].lower()
+    code = serializer.validated_data["code"]
+
+    otp = (
+        EmailOTP.objects
+        .filter(email=email, code=code, is_used=False)
+        .order_by("-created_at")
+        .first()
+    )
+
+    if not otp:
         return Response(
-            {
-                "token": token.key,
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_201_CREATED,
+            {"detail": "Invalid verification code."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-
-class LoginView(ObtainAuthToken):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        token = Token.objects.get(key=response.data["token"])
-
+    if otp.is_expired():
         return Response(
-            {
-                "token": token.key,
-                "user": UserSerializer(token.user).data,
-            }
+            {"detail": "Verification code has expired."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
+    otp.is_used = True
+    otp.save(update_fields=["is_used"])
 
-class MeView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
+    user, _ = User.objects.get_or_create(email=email)
+    token, _ = Token.objects.get_or_create(user=user)
 
-    def get_object(self):
-        return self.request.user
+    return Response(
+        {
+            "token": token.key,
+            "user": UserSerializer(user).data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def me(request):
+    return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)

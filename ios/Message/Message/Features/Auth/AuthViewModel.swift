@@ -3,16 +3,22 @@ import Combine
 
 @MainActor
 final class AuthViewModel: ObservableObject {
-    @Published var username = ""
-    @Published var password = ""
-    @Published var currentUser: User?
-    @Published var isAuthenticated = false
-    @Published var isLoading = false
-    @Published var isRestoringSession = true
+    @Published var email: String = ""
+    @Published var code: String = ""
+    @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var infoMessage: String?
+    @Published var didSendCode: Bool = false
 
-    private let authService = AuthService()
-    private let keychainService = KeychainService()
+    @Published var token: String?
+    @Published var currentUser: User?
+    @Published var isRestoringSession: Bool = true
+
+    private let keychain = KeychainService()
+
+    var isAuthenticated: Bool {
+        token != nil
+    }
 
     init() {
         Task {
@@ -21,59 +27,88 @@ final class AuthViewModel: ObservableObject {
     }
 
     func restoreSession() async {
+        isRestoringSession = true
         defer { isRestoringSession = false }
 
-        guard let token = keychainService.getToken() else { return }
+        guard let savedToken = keychain.getToken() else {
+            return
+        }
 
         do {
-            let user = try await authService.me(token: token)
+            let user = try await AuthService.shared.fetchCurrentUser(token: savedToken)
+            token = savedToken
             currentUser = user
-            isAuthenticated = true
         } catch {
-            keychainService.clearToken()
+            keychain.clearToken()
+            token = nil
             currentUser = nil
-            isAuthenticated = false
         }
     }
 
-    func login() async {
+    func requestCode() async {
         errorMessage = nil
-        isLoading = true
+        infoMessage = nil
 
+        let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        guard !cleanedEmail.isEmpty else {
+            errorMessage = "Please enter your email."
+            return
+        }
+
+        isLoading = true
         defer { isLoading = false }
 
         do {
-            let response = try await authService.login(username: username, password: password)
-            keychainService.saveToken(response.token)
-            currentUser = response.user
-            isAuthenticated = true
+            let message = try await AuthService.shared.requestEmailOTP(email: cleanedEmail)
+            email = cleanedEmail
+            infoMessage = message
+            didSendCode = true
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func register() async {
+    func verifyCode() async {
         errorMessage = nil
-        isLoading = true
+        infoMessage = nil
 
+        let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedEmail.isEmpty else {
+            errorMessage = "Missing email address."
+            return
+        }
+
+        guard cleanedCode.count == 6 else {
+            errorMessage = "Enter the 6-digit code."
+            return
+        }
+
+        isLoading = true
         defer { isLoading = false }
 
         do {
-            let response = try await authService.register(username: username, password: password)
-            keychainService.saveToken(response.token)
+            let response = try await AuthService.shared.verifyEmailOTP(email: cleanedEmail, code: cleanedCode)
+            token = response.token
             currentUser = response.user
-            isAuthenticated = true
+            keychain.saveToken(response.token)
+            didSendCode = false
+            code = ""
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func logout() {
-        keychainService.clearToken()
-        username = ""
-        password = ""
+        keychain.clearToken()
+        token = nil
         currentUser = nil
-        isAuthenticated = false
+        email = ""
+        code = ""
+        didSendCode = false
         errorMessage = nil
+        infoMessage = nil
     }
 }

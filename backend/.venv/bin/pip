@@ -1,4 +1,4 @@
-#!/Users/angusanderson/Developer/Message-app/Message/backend/.venv/bin/python3
+#!/Users/angusanderson/Developer/Message-app/Message/backend/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

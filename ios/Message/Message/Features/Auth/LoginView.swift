@@ -1,83 +1,157 @@
 import SwiftUI
 
 struct LoginView: View {
-    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var viewModel: AuthViewModel
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 24) {
-                Spacer()
-
-                Text("Login / Register")
-                    .font(.system(size: 38, weight: .light, design: .serif))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(spacing: 16) {
-                    TextField("Username", text: $authViewModel.username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding()
-                        .background(Color.white.opacity(0.08))
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-
-                    SecureField("Password", text: $authViewModel.password)
-                        .padding()
-                        .background(Color.white.opacity(0.08))
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-
-                    if let errorMessage = authViewModel.errorMessage {
-                        Text(errorMessage)
-                            .foregroundColor(.red.opacity(0.9))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Button {
-                        Task {
-                            await authViewModel.login()
-                        }
-                    } label: {
-                        if authViewModel.isLoading {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                        } else {
-                            Text("Log In")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                        }
-                    }
-                    .background(Color(red: 0.68, green: 0.0, blue: 0.14))
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .disabled(authViewModel.isLoading || authViewModel.username.isEmpty || authViewModel.password.isEmpty)
-                    .opacity((authViewModel.isLoading || authViewModel.username.isEmpty || authViewModel.password.isEmpty) ? 0.6 : 1.0)
-
-                    Button {
-                        Task {
-                            await authViewModel.register()
-                        }
-                    } label: {
-                        Text("Create Account")
-                            .fontWeight(.medium)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    }
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .disabled(authViewModel.isLoading || authViewModel.username.isEmpty || authViewModel.password.isEmpty)
-                    .opacity((authViewModel.isLoading || authViewModel.username.isEmpty || authViewModel.password.isEmpty) ? 0.6 : 1.0)
-                }
-
-                Spacer()
+        Group {
+            if viewModel.didSendCode {
+                EmailOTPView()
+            } else {
+                EmailEntryView()
             }
-            .padding(24)
         }
+        .navigationTitle("Sign In")
+    }
+}
+
+private struct EmailEntryView: View {
+    @EnvironmentObject var viewModel: AuthViewModel
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Text("Sign in with your email")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("We'll send you a 6-digit login code.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            TextField(
+                "Email address",
+                text: Binding(
+                    get: { viewModel.email },
+                    set: { viewModel.email = $0 }
+                )
+            )
+            .textInputAutocapitalization(.never)
+            .keyboardType(.emailAddress)
+            .autocorrectionDisabled(true)
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let info = viewModel.infoMessage {
+                Text(info)
+                    .foregroundStyle(.green)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task {
+                    await viewModel.requestCode()
+                }
+            } label: {
+                HStack {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Send Code")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .disabled(viewModel.isLoading)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+private struct EmailOTPView: View {
+    @EnvironmentObject var viewModel: AuthViewModel
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Text("Enter your code")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("We sent a 6-digit code to \(viewModel.email)")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            TextField(
+                "6-digit code",
+                text: Binding(
+                    get: { viewModel.code },
+                    set: { viewModel.code = $0 }
+                )
+            )
+            .keyboardType(.numberPad)
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task {
+                    await viewModel.verifyCode()
+                }
+            } label: {
+                HStack {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Verify Code")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.green)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .disabled(viewModel.isLoading)
+
+            Button("Use another email") {
+                viewModel.code = ""
+                viewModel.didSendCode = false
+                viewModel.errorMessage = nil
+                viewModel.infoMessage = nil
+            }
+            .padding(.top, 8)
+
+            Spacer()
+        }
+        .padding()
     }
 }
