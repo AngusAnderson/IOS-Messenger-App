@@ -31,11 +31,14 @@ final class APIClient {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown server error"
-            throw APIError.serverError(message)
+            throw APIError.serverError(Self.extractErrorMessage(from: data))
         }
 
-        return try JSONDecoder().decode(U.self, from: data)
+        do {
+            return try JSONDecoder().decode(U.self, from: data)
+        } catch {
+            throw APIError.serverError("Failed to decode server response.")
+        }
     }
 
     func get<U: Decodable>(
@@ -55,11 +58,49 @@ final class APIClient {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown server error"
-            throw APIError.serverError(message)
+            throw APIError.serverError(Self.extractErrorMessage(from: data))
         }
 
-        return try JSONDecoder().decode(U.self, from: data)
+        do {
+            return try JSONDecoder().decode(U.self, from: data)
+        } catch {
+            throw APIError.serverError("Failed to decode server response.")
+        }
+    }
+
+    private static func extractErrorMessage(from data: Data) -> String {
+        if let detailResponse = try? JSONDecoder().decode(DRFDetailError.self, from: data) {
+            return detailResponse.detail
+        }
+
+        if let simpleError = try? JSONDecoder().decode(SimpleErrorResponse.self, from: data) {
+            return simpleError.error
+        }
+
+        if let fieldErrors = try? JSONDecoder().decode([String: [String]].self, from: data) {
+            if let nonFieldErrors = fieldErrors["non_field_errors"], let first = nonFieldErrors.first {
+                return first
+            }
+
+            let messages = fieldErrors.flatMap { key, values in
+                values.map {
+                    let prettyKey = key
+                        .replacingOccurrences(of: "_", with: " ")
+                        .capitalized
+                    return "\(prettyKey): \($0)"
+                }
+            }
+
+            if !messages.isEmpty {
+                return messages.joined(separator: "\n")
+            }
+        }
+
+        if let raw = String(data: data, encoding: .utf8), !raw.isEmpty {
+            return raw
+        }
+
+        return "Something went wrong."
     }
 }
 
@@ -75,4 +116,12 @@ enum APIError: LocalizedError {
             return message
         }
     }
+}
+
+struct DRFDetailError: Decodable {
+    let detail: String
+}
+
+struct SimpleErrorResponse: Decodable {
+    let error: String
 }
