@@ -24,9 +24,7 @@ struct AppRouter: View {
                     ChatListView()
                 }
             } else {
-                NavigationStack {
-                    LoginView()
-                }
+                LoginView()
             }
         }
     }

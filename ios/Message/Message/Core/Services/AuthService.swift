@@ -1,19 +1,28 @@
 import Foundation
 
 final class AuthService {
-    private let api = APIClient.shared
+    static let shared = AuthService()
+    private init() {}
 
-    func login(username: String, password: String) async throws -> AuthResponse {
-        let request = LoginRequest(username: username, password: password)
-        return try await api.post(path: "auth/login/", body: request)
+    func requestEmailOTP(email: String) async throws -> String {
+        let response: APIMessageResponse = try await APIClient.shared.post(
+            path: "auth/request-email-otp/",
+            body: RequestEmailOTPBody(email: email)
+        )
+        return response.detail
     }
 
-    func register(username: String, password: String) async throws -> AuthResponse {
-        let request = RegisterRequest(username: username, password: password)
-        return try await api.post(path: "auth/register/", body: request)
+    func verifyEmailOTP(email: String, code: String) async throws -> AuthResponse {
+        return try await APIClient.shared.post(
+            path: "auth/verify-email-otp/",
+            body: VerifyEmailOTPBody(email: email, code: code)
+        )
     }
 
-    func me(token: String) async throws -> User {
-        return try await api.get(path: "auth/me/", token: token)
+    func fetchCurrentUser(token: String) async throws -> User {
+        return try await APIClient.shared.get(
+            path: "auth/me/",
+            token: token
+        )
     }
 }

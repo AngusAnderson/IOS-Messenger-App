@@ -1,28 +1,17 @@
-from django.contrib.auth.models import User
 from rest_framework import serializers
+from .models import User
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+class RequestEmailOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-    class Meta:
-        model = User
-        fields = ["id", "username", "password"]
 
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username already exists.")
-        return value
-
-    def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            password=validated_data["password"],
-        )
-        return user
+class VerifyEmailOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6)
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username"]
+        fields = ["id", "email", "is_active", "created_at"]

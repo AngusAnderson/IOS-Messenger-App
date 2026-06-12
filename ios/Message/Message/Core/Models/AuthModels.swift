@@ -1,13 +1,16 @@
 import Foundation
 
-struct LoginRequest: Codable {
-    let username: String
-    let password: String
+struct RequestEmailOTPBody: Codable {
+    let email: String
 }
 
-struct RegisterRequest: Codable {
-    let username: String
-    let password: String
+struct VerifyEmailOTPBody: Codable {
+    let email: String
+    let code: String
+}
+
+struct APIMessageResponse: Codable {
+    let detail: String
 }
 
 struct AuthResponse: Codable {

@@ -9,14 +9,14 @@ struct ChatListView: View {
 
             VStack(spacing: 20) {
                 if let user = authViewModel.currentUser {
-                    Text("Welcome, \(user.username)")
-                        .font(.title2)
+                    Text("Welcome, \(user.email)")
                         .foregroundColor(.white)
+                        .font(.title2)
                 }
 
                 Text("Chat List")
-                    .font(.title)
                     .foregroundColor(.white)
+                    .font(.largeTitle)
 
                 Button("Log Out") {
                     authViewModel.logout()
@@ -28,5 +28,6 @@ struct ChatListView: View {
             }
             .padding()
         }
+        .navigationTitle("Messages")
     }
 }
