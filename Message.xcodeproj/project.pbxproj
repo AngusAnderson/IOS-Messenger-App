@@ -15,7 +15,7 @@
 		7076B00D2FDB062500B35CD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7076B0162FDB0E9900B35CD0 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		7076B01A2FDB0EC200B35CD0 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		7076EE3F2FDB263A00B35CD0 /* Message-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Message-Info.plist"; sourceTree = "<group>"; };
+		7076EE3F2FDB263A00B35CD0 /* Message-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Message-Info.plist"; sourceTree = "<group>"; };
 		707E53712FDC44F000871864 /* .env */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = .env; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -5931,6 +5931,11 @@
 			path = backend;
 			sourceTree = "<group>";
 		};
+		70F913A92FE8B14C0087F790 /* Custom Font */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Custom Font";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -5948,12 +5953,14 @@
 			isa = PBXGroup;
 			children = (
 				7076EE3F2FDB263A00B35CD0 /* Message-Info.plist */,
+				70F913A92FE8B14C0087F790 /* Custom Font */,
 				7076B0362FDB100700B35CD0 /* backend */,
 				7076B0262FDB0F1700B35CD0 /* docs */,
 				7076B01A2FDB0EC200B35CD0 /* .gitignore */,
 				707E53712FDC44F000871864 /* .env */,
 				7076B02A2FDB0F3F00B35CD0 /* ios */,
 				7076B00D2FDB062500B35CD0 /* Assets.xcassets */,
+				70F913862FE8B02F0087F790 /* fonts */,
 				7076B0162FDB0E9900B35CD0 /* README.md */,
 				7076B0072FDB062400B35CD0 /* Products */,
 			);
@@ -5965,6 +5972,13 @@
 				7076B0062FDB062400B35CD0 /* Message.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		70F913862FE8B02F0087F790 /* fonts */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -5986,6 +6000,7 @@
 				7076B0262FDB0F1700B35CD0 /* docs */,
 				7076B02A2FDB0F3F00B35CD0 /* ios */,
 				7076B0362FDB100700B35CD0 /* backend */,
+				70F913A92FE8B14C0087F790 /* Custom Font */,
 			);
 			name = Message;
 			packageProductDependencies = (
