@@ -6,37 +6,96 @@ struct ChatDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var draftMessage = ""
+    @GestureState private var dragOffset: CGSize = .zero
+
+    private let bottomAnchorID = "BOTTOM_ANCHOR"
 
     var body: some View {
-        ZStack {
-            Color.appBackground
-                .ignoresSafeArea()
+        GeometryReader { outerGeo in
+            ZStack {
+                Color.appBackground
+                    .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                topBar
+                VStack(spacing: 0) {
+                    topBar
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        profileCard
-                            .padding(.top, 8)
+                    ScrollViewReader { proxy in
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                profileCard
+                                    .padding(.top, 8)
 
-                        messageStack
-                            .padding(.top, 56)
-                            .padding(.horizontal, 24)
-                            .padding(.bottom, 120)
+                                messageStack(maxBubbleWidth: outerGeo.size.width * 0.58)
+                                    .padding(.top, 56)
+                                    .padding(.horizontal, 24)
+                                    .padding(.bottom, 24)
+
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id(bottomAnchorID)
+                            }
+                            .padding(.bottom, 96)
+                        }
+                        // Disable scrolling once a swipe-to-dismiss has started
+                        .scrollDisabled(dragOffset.width > 10)
+                        .onAppear {
+                            scrollToBottom(proxy: proxy, animated: false)
+                        }
+                        .onChange(of: messages.count) { _ in
+                            scrollToBottom(proxy: proxy, animated: true)
+                        }
                     }
                 }
+                .offset(x: max(0, dragOffset.width))
             }
+            .safeAreaInset(edge: .bottom) {
+                composer
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                    .padding(.bottom, 20)
+                    .background(Color.appBackground)
+            }
+            .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
+            .contentShape(Rectangle())
+            // Use simultaneousGesture so the scrollview and dismiss gesture don't fight
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8, coordinateSpace: .local)
+                    .updating($dragOffset) { value, state, _ in
+                        let startedAtLeftEdge = value.startLocation.x <= 32
+                        let horizontal = value.translation.width
+                        let vertical = value.translation.height
+
+                        let isRightward = horizontal > 0
+                        let withinFortyFiveDegrees = abs(horizontal) >= abs(vertical)
+
+                        if startedAtLeftEdge && isRightward && withinFortyFiveDegrees {
+                            state = CGSize(width: horizontal, height: 0)
+                        }
+                    }
+                    .onEnded { value in
+                        let startedAtLeftEdge = value.startLocation.x <= 32
+                        let horizontal = value.translation.width
+                        let vertical = value.translation.height
+                        let predictedHorizontal = value.predictedEndTranslation.width
+                        let predictedVertical = value.predictedEndTranslation.height
+
+                        let isRightward = horizontal > 0
+                        let withinFortyFiveDegreesNow = abs(horizontal) >= abs(vertical)
+                        let withinFortyFiveDegreesPredicted = abs(predictedHorizontal) >= abs(predictedVertical)
+
+                        let passedDistance = horizontal > 44
+                        let passedMomentum = predictedHorizontal > 90
+
+                        if startedAtLeftEdge &&
+                            isRightward &&
+                            (withinFortyFiveDegreesNow || withinFortyFiveDegreesPredicted) &&
+                            (passedDistance || passedMomentum) {
+                            dismiss()
+                        }
+                    }
+            )
         }
-        .safeAreaInset(edge: .bottom) {
-            composer
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .padding(.bottom, 20)
-                .background(Color.appBackground)
-        }
-        .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var topBar: some View {
@@ -91,16 +150,12 @@ struct ChatDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var messageStack: some View {
-        GeometryReader { geo in
-            VStack(spacing: 28) {
-                ForEach(messages) { message in
-                    messageBubble(message, maxBubbleWidth: geo.size.width * 0.68)
-                }
+    private func messageStack(maxBubbleWidth: CGFloat) -> some View {
+        VStack(spacing: 28) {
+            ForEach(messages) { message in
+                messageBubble(message, maxBubbleWidth: maxBubbleWidth)
             }
-            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .frame(minHeight: CGFloat(messages.count) * 90)
     }
 
     @ViewBuilder
@@ -176,6 +231,20 @@ struct ChatDetailView: View {
                     .padding(.vertical, 16)
             }
             .frame(height: 54)
+        }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        guard !messages.isEmpty else { return }
+
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                }
+            } else {
+                proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+            }
         }
     }
 }
