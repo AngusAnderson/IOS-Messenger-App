@@ -33,20 +33,7 @@ final class APIClient {
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            throw APIError.serverError(Self.extractErrorMessage(from: data))
-        }
-
-        do {
-            return try JSONDecoder().decode(U.self, from: data)
-        } catch {
-            throw APIError.serverError("Failed to decode server response.")
-        }
+        return try handleResponse(data: data, response: response)
     }
 
     func get<U: Decodable>(
@@ -60,19 +47,27 @@ final class APIClient {
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
+        return try handleResponse(data: data, response: response)
+    }
 
+    private func handleResponse<U: Decodable>(data: Data, response: URLResponse) throws -> U {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
 
-        guard 200..<300 ~= httpResponse.statusCode else {
-            throw APIError.serverError(Self.extractErrorMessage(from: data))
-        }
+        switch httpResponse.statusCode {
+        case 200..<300:
+            do {
+                return try JSONDecoder().decode(U.self, from: data)
+            } catch {
+                throw APIError.decodingFailed
+            }
 
-        do {
-            return try JSONDecoder().decode(U.self, from: data)
-        } catch {
-            throw APIError.serverError("Failed to decode server response.")
+        case 401:
+            throw APIError.unauthorized
+
+        default:
+            throw APIError.serverError(Self.extractErrorMessage(from: data))
         }
     }
 
@@ -114,12 +109,18 @@ final class APIClient {
 
 enum APIError: LocalizedError {
     case invalidResponse
+    case unauthorized
+    case decodingFailed
     case serverError(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "Invalid server response."
+        case .unauthorized:
+            return "Your session has expired. Please log in again."
+        case .decodingFailed:
+            return "Failed to decode server response."
         case .serverError(let message):
             return message
         }
