@@ -2,6 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>IntelOneMono-Italic-VariableFont_wght.ttf</string>
+		<string>IntelOneMono-VariableFont_wght.ttf</string>
+		<string>IntelOneMono-Bold.ttf</string>
+		<string>IntelOneMono-BoldItalic.ttf</string>
+		<string>IntelOneMono-Italic.ttf</string>
+		<string>IntelOneMono-Light.ttf</string>
+		<string>IntelOneMono-LightItalic.ttf</string>
+		<string>IntelOneMono-Medium.ttf</string>
+		<string>IntelOneMono-MediumItalic.ttf</string>
+		<string>IntelOneMono-Regular.ttf</string>
+		<string>IntelOneMono-SemiBold.ttf</string>
+		<string>IntelOneMono-SemiBoldItalic.ttf</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+		</dict>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
