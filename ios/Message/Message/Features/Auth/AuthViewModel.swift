@@ -28,9 +28,12 @@ final class AuthViewModel: ObservableObject {
 
     func restoreSession() async {
         isRestoringSession = true
+        errorMessage = nil
         defer { isRestoringSession = false }
 
         guard let savedToken = keychain.getToken() else {
+            token = nil
+            currentUser = nil
             return
         }
 
@@ -38,10 +41,19 @@ final class AuthViewModel: ObservableObject {
             let user = try await AuthService.shared.fetchCurrentUser(token: savedToken)
             token = savedToken
             currentUser = user
+        } catch let apiError as APIError {
+            switch apiError {
+            case .unauthorized:
+                clearSession()
+            default:
+                token = savedToken
+                currentUser = nil
+                errorMessage = "Couldn't refresh your session right now."
+            }
         } catch {
-            keychain.clearToken()
-            token = nil
+            token = savedToken
             currentUser = nil
+            errorMessage = "Couldn't refresh your session right now."
         }
     }
 
@@ -96,12 +108,22 @@ final class AuthViewModel: ObservableObject {
             keychain.saveToken(response.token)
             didSendCode = false
             code = ""
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func logout() {
+        clearSession()
+    }
+
+    func handleUnauthorized() {
+        clearSession()
+        errorMessage = "Your session has expired. Please log in again."
+    }
+
+    private func clearSession() {
         keychain.clearToken()
         token = nil
         currentUser = nil
