@@ -2,32 +2,58 @@ import SwiftUI
 
 struct ChatListView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var viewModel = ChatListViewModel()
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.appBackground
+                .ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                if let user = authViewModel.currentUser {
-                    Text("Welcome, \(user.email)")
-                        .foregroundColor(.white)
-                        .font(.title2)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 22) {
+                    ChatSearchBar(text: $viewModel.searchText)
+
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.appForeground)
+                            .padding(.top, 40)
+                    } else {
+                        LazyVStack(spacing: 18) {
+                            ForEach(viewModel.filteredConversations) { conversation in
+                                NavigationLink(value: conversation) {
+                                    ConversationRowView(conversation: conversation)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
                 }
-
-                Text("Chat List")
-                    .foregroundColor(.white)
-                    .font(.largeTitle)
-
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 40)
+            }
+        }
+        .navigationTitle("Messages")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: Conversation.self) { conversation in
+            ChatDetailView(
+                conversation: conversation,
+                messages: viewModel.messages(for: conversation)
+            )
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Log Out") {
                     authViewModel.logout()
                 }
-                .padding()
-                .background(Color.red.opacity(0.85))
-                .foregroundColor(.white)
-                .cornerRadius(12)
+                .foregroundColor(.appForeground)
+                .font(.custom("IntelOneMono-Regular", size: 14))
             }
-            .padding()
         }
-        .navigationTitle("Messages")
+        .toolbarBackground(Color.appBackground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .task {
+            await viewModel.loadConversations()
+        }
     }
 }

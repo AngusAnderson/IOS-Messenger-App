@@ -7,15 +7,15 @@ struct AppRouter: View {
         Group {
             if authViewModel.isRestoringSession {
                 ZStack {
-                    Color.black.ignoresSafeArea()
+                    Color.appBackground.ignoresSafeArea()
 
                     VStack(spacing: 16) {
                         ProgressView()
-                            .tint(.white)
+                            .tint(.appForeground)
                             .scaleEffect(1.2)
 
                         Text("Restoring session...")
-                            .foregroundColor(.white.opacity(0.85))
+                            .foregroundColor(.appForeground.opacity(0.85))
                             .font(.headline)
                     }
                 }
