@@ -3,9 +3,17 @@ import Foundation
 final class APIClient {
     static let shared = APIClient()
 
-    private init() {}
+    private let baseURL = URL(string: AppConfig.baseURL)!
+    private let session: URLSession
 
-    let baseURL = URL(string: "http://192.168.7.4:8000/api")!
+    private init() {
+        let configuration = URLSessionConfiguration.default
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+
+        self.session = URLSession(configuration: configuration)
+    }
 
     func post<T: Encodable, U: Decodable>(
         path: String,
@@ -24,7 +32,7 @@ final class APIClient {
 
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -51,7 +59,7 @@ final class APIClient {
         request.httpMethod = "GET"
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse

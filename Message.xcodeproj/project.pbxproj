@@ -5960,7 +5960,6 @@
 				707E53712FDC44F000871864 /* .env */,
 				7076B02A2FDB0F3F00B35CD0 /* ios */,
 				7076B00D2FDB062500B35CD0 /* Assets.xcassets */,
-				70F913862FE8B02F0087F790 /* fonts */,
 				7076B0162FDB0E9900B35CD0 /* README.md */,
 				7076B0072FDB062400B35CD0 /* Products */,
 			);
@@ -5972,13 +5971,6 @@
 				7076B0062FDB062400B35CD0 /* Message.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		70F913862FE8B02F0087F790 /* fonts */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

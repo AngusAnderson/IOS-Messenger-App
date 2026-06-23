@@ -4,6 +4,14 @@ struct LoginView: View {
     @EnvironmentObject var viewModel: AuthViewModel
     @State private var keyboardHeight: CGFloat = 0
 
+    private var keyboardBottomPadding: CGFloat {
+        if keyboardHeight == 0 {
+            return -5
+        }
+
+        return viewModel.didSendCode ? 360 : 220
+    }
+
     var body: some View {
         ZStack {
             LoginBackgroundView()
@@ -17,9 +25,10 @@ struct LoginView: View {
                     EmailCardView()
                 }
             }
-            .padding(.bottom, keyboardHeight > 0 ? 220 : -5)
+            .padding(.bottom, keyboardBottomPadding)
             .padding(.horizontal, 20)
             .animation(.easeInOut(duration: 0.25), value: keyboardHeight)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.didSendCode)
         }
         .ignoresSafeArea()
         .ignoresSafeArea(.keyboard, edges: .bottom)
