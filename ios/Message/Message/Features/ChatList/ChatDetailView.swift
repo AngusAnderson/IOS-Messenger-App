@@ -17,16 +17,14 @@ struct ChatDetailView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    topBar
+                    profileCard
+                        .padding(.top, 16)
+                        .padding(.bottom, 24)
 
                     ScrollViewReader { proxy in
                         ScrollView(showsIndicators: false) {
                             VStack(spacing: 0) {
-                                profileCard
-                                    .padding(.top, 8)
-
                                 messageStack(maxBubbleWidth: outerGeo.size.width * 0.58)
-                                    .padding(.top, 56)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 24)
 
@@ -36,7 +34,6 @@ struct ChatDetailView: View {
                             }
                             .padding(.bottom, 96)
                         }
-                        // Disable scrolling once a swipe-to-dismiss has started
                         .scrollDisabled(dragOffset.width > 10)
                         .onAppear {
                             scrollToBottom(proxy: proxy, animated: false)
@@ -58,7 +55,6 @@ struct ChatDetailView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
             .contentShape(Rectangle())
-            // Use simultaneousGesture so the scrollview and dismiss gesture don't fight
             .simultaneousGesture(
                 DragGesture(minimumDistance: 8, coordinateSpace: .local)
                     .updating($dragOffset) { value, state, _ in
@@ -98,29 +94,6 @@ struct ChatDetailView: View {
         }
     }
 
-    private var topBar: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.cardBackground)
-                        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
-
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundColor(.appForeground)
-                }
-                .frame(width: 52, height: 52)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-    }
-
     private var profileCard: some View {
         VStack(spacing: 22) {
             Circle()
@@ -129,22 +102,22 @@ struct ChatDetailView: View {
                     Circle()
                         .stroke(Color.appBackground.opacity(0.7), lineWidth: 1)
                 )
-                .frame(width: 96, height: 96)
+                .frame(width: 60, height: 60)
 
             VStack(spacing: 12) {
-                Text(conversation.title)
-                    .font(.custom("IntelOneMono-Regular", size: 20))
+                Text("Jeremy")
+                    .font(.custom("IntelOneMono-light", size: 13))
                     .foregroundColor(.appForeground)
 
                 Text("United Kingdom")
-                    .font(.custom("IntelOneMono-Regular", size: 14))
+                    .font(.custom("IntelOneMono-light", size: 10))
                     .foregroundColor(.appForeground.opacity(0.95))
                     .tracking(1)
             }
         }
-        .frame(width: 235, height: 292)
+        .frame(width: 140, height: 170)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(Color.chatAccent)
         )
         .frame(maxWidth: .infinity)
