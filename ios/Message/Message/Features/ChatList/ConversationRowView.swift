@@ -34,6 +34,8 @@ struct ConversationRowView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color.cardBackground)

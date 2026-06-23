@@ -12,8 +12,8 @@ struct ChatSearchBar: View {
             TextField(
                 "",
                 text: $text,
-                prompt: Text("Search |")
-                    .foregroundColor(Color.appForeground.opacity(0.95))
+                prompt: Text("Search...")
+                    .foregroundColor(Color.appForeground.opacity(0.5))
             )
             .textFieldStyle(.plain)
             .font(.custom("IntelOneMono-Regular", size: 18))

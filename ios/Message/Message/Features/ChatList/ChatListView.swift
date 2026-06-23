@@ -2,18 +2,7 @@ import SwiftUI
 
 struct ChatListView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
-    @State private var searchText = ""
-
-    private var filteredConversations: [Conversation] {
-        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return Conversation.mockData
-        }
-
-        return Conversation.mockData.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText) ||
-            $0.preview.localizedCaseInsensitiveContains(searchText)
-        }
-    }
+    @StateObject private var viewModel = ChatListViewModel()
 
     var body: some View {
         ZStack {
@@ -22,11 +11,20 @@ struct ChatListView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 22) {
-                    ChatSearchBar(text: $searchText)
+                    ChatSearchBar(text: $viewModel.searchText)
 
-                    LazyVStack(spacing: 18) {
-                        ForEach(filteredConversations) { conversation in
-                            ConversationRowView(conversation: conversation)
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.appForeground)
+                            .padding(.top, 40)
+                    } else {
+                        LazyVStack(spacing: 18) {
+                            ForEach(viewModel.filteredConversations) { conversation in
+                                NavigationLink(value: conversation) {
+                                    ConversationRowView(conversation: conversation)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
@@ -37,6 +35,12 @@ struct ChatListView: View {
         }
         .navigationTitle("Messages")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: Conversation.self) { conversation in
+            ChatDetailView(
+                conversation: conversation,
+                messages: viewModel.messages(for: conversation)
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Log Out") {
@@ -48,5 +52,8 @@ struct ChatListView: View {
         }
         .toolbarBackground(Color.appBackground, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .task {
+            await viewModel.loadConversations()
+        }
     }
 }
