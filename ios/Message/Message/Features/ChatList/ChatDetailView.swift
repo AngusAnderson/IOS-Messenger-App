@@ -2,13 +2,19 @@ import SwiftUI
 
 struct ChatDetailView: View {
     let conversation: Conversation
-    let messages: [Message]
 
     @Environment(\.dismiss) private var dismiss
-    @State private var draftMessage = ""
+    @StateObject private var viewModel: ChatDetailViewModel
     @GestureState private var dragOffset: CGSize = .zero
 
     private let bottomAnchorID = "BOTTOM_ANCHOR"
+
+    init(conversation: Conversation) {
+        self.conversation = conversation
+        _viewModel = StateObject(
+            wrappedValue: ChatDetailViewModel(conversation: conversation)
+        )
+    }
 
     var body: some View {
         GeometryReader { outerGeo in
@@ -38,7 +44,7 @@ struct ChatDetailView: View {
                         .onAppear {
                             scrollToBottom(proxy: proxy, animated: false)
                         }
-                        .onChange(of: messages.count) { _ in
+                        .onChange(of: viewModel.messages.count) { _ in
                             scrollToBottom(proxy: proxy, animated: true)
                         }
                     }
@@ -105,12 +111,12 @@ struct ChatDetailView: View {
                 .frame(width: 60, height: 60)
 
             VStack(spacing: 12) {
-                Text("Jeremy")
-                    .font(.custom("IntelOneMono-light", size: 13))
+                Text(conversation.title)
+                    .font(.custom("IntelOneMono-Light", size: 13))
                     .foregroundColor(.appForeground)
 
                 Text("United Kingdom")
-                    .font(.custom("IntelOneMono-light", size: 10))
+                    .font(.custom("IntelOneMono-Light", size: 10))
                     .foregroundColor(.appForeground.opacity(0.95))
                     .tracking(1)
             }
@@ -125,7 +131,7 @@ struct ChatDetailView: View {
 
     private func messageStack(maxBubbleWidth: CGFloat) -> some View {
         VStack(spacing: 28) {
-            ForEach(messages) { message in
+            ForEach(viewModel.messages) { message in
                 messageBubble(message, maxBubbleWidth: maxBubbleWidth)
             }
         }
@@ -189,26 +195,45 @@ struct ChatDetailView: View {
                     .fill(Color.cardBackground)
                     .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
 
-                if draftMessage.isEmpty {
+                if viewModel.draftMessage.isEmpty {
                     Text("Message")
                         .font(.custom("IntelOneMono-Regular", size: 18))
                         .foregroundColor(.appForeground.opacity(0.72))
                         .padding(.horizontal, 18)
                 }
 
-                TextField("", text: $draftMessage)
+                TextField("", text: $viewModel.draftMessage)
                     .textFieldStyle(.plain)
                     .font(.custom("IntelOneMono-Regular", size: 18))
                     .foregroundColor(.appForeground)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 16)
+                    .onSubmit {
+                        viewModel.sendMessage()
+                    }
             }
             .frame(height: 54)
+
+            Button {
+                viewModel.sendMessage()
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(viewModel.canSendMessage ? Color.chatAccent : Color.cardBackground)
+                        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
+
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.appForeground)
+                }
+                .frame(width: 54, height: 54)
+            }
+            .disabled(!viewModel.canSendMessage)
         }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        guard !messages.isEmpty else { return }
+        guard !viewModel.messages.isEmpty else { return }
 
         DispatchQueue.main.async {
             if animated {

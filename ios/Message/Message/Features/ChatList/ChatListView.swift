@@ -36,10 +36,7 @@ struct ChatListView: View {
         .navigationTitle("Messages")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Conversation.self) { conversation in
-            ChatDetailView(
-                conversation: conversation,
-                messages: viewModel.messages(for: conversation)
-            )
+            ChatDetailView(conversation: conversation)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
