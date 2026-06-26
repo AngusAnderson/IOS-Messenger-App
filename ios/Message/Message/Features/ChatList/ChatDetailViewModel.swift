@@ -18,17 +18,20 @@ final class ChatDetailViewModel: ObservableObject {
                 Message(
                     text: "Are we all still good for Tuesday?",
                     isFromCurrentUser: false,
-                    timestamp: "10:11"
+                    timestamp: "10:11",
+                    status: nil
                 ),
                 Message(
                     text: "Yep, I’m in.",
                     isFromCurrentUser: true,
-                    timestamp: "10:13"
+                    timestamp: "10:13",
+                    status: .sent
                 ),
                 Message(
                     text: "Perfect, see you then.",
                     isFromCurrentUser: false,
-                    timestamp: "10:14"
+                    timestamp: "10:14",
+                    status: nil
                 )
             ]
         } else {
@@ -50,10 +53,19 @@ final class ChatDetailViewModel: ObservableObject {
         let newMessage = Message(
             text: trimmed,
             isFromCurrentUser: true,
-            timestamp: formatter.string(from: Date())
+            timestamp: formatter.string(from: Date()),
+            status: .sending
         )
 
         messages.append(newMessage)
         draftMessage = ""
+
+        Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+
+            if let index = messages.indices.last {
+                messages[index].status = .sent
+            }
+        }
     }
 }

@@ -100,6 +100,8 @@ struct ChatDetailView: View {
         }
     }
 
+    // MARK: - Header card
+
     private var profileCard: some View {
         VStack(spacing: 22) {
             Circle()
@@ -129,6 +131,8 @@ struct ChatDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Messages
+
     private func messageStack(maxBubbleWidth: CGFloat) -> some View {
         VStack(spacing: 28) {
             ForEach(viewModel.messages) { message in
@@ -141,6 +145,7 @@ struct ChatDetailView: View {
     private func messageBubble(_ message: Message, maxBubbleWidth: CGFloat) -> some View {
         HStack {
             if !message.isFromCurrentUser {
+                // Incoming
                 Text(message.text)
                     .font(.custom("IntelOneMono-Regular", size: 15))
                     .foregroundColor(.appBackground)
@@ -156,23 +161,51 @@ struct ChatDetailView: View {
 
                 Spacer(minLength: 48)
             } else {
+                // Outgoing
                 Spacer(minLength: 48)
 
-                Text(message.text)
-                    .font(.custom("IntelOneMono-Regular", size: 15))
-                    .foregroundColor(.appForeground)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.chatAccent)
-                    )
-                    .frame(maxWidth: maxBubbleWidth, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(message.text)
+                        .font(.custom("IntelOneMono-Regular", size: 15))
+                        .foregroundColor(.appForeground)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.chatAccent)
+                        )
+                        .frame(maxWidth: maxBubbleWidth, alignment: .trailing)
+
+                    Text(statusLine(for: message))
+                        .font(.custom("IntelOneMono-Regular", size: 11))
+                        .foregroundColor(.appForeground.opacity(0.65))
+                }
             }
         }
     }
+
+    private func statusLine(for message: Message) -> String {
+        guard message.isFromCurrentUser else {
+            return message.timestamp
+        }
+
+        if let status = message.status {
+            switch status {
+            case .sending:
+                return "\(message.timestamp) • Sending"
+            case .sent:
+                return "\(message.timestamp) • Sent"
+            case .failed:
+                return "\(message.timestamp) • Failed"
+            }
+        } else {
+            return message.timestamp
+        }
+    }
+
+    // MARK: - Composer
 
     private var composer: some View {
         HStack(spacing: 16) {
@@ -231,6 +264,8 @@ struct ChatDetailView: View {
             .disabled(!viewModel.canSendMessage)
         }
     }
+
+    // MARK: - Scrolling
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard !viewModel.messages.isEmpty else { return }
