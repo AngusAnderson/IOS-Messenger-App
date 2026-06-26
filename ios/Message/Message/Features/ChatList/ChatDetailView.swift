@@ -7,7 +7,12 @@ struct ChatDetailView: View {
     @StateObject private var viewModel: ChatDetailViewModel
     @GestureState private var dragOffset: CGSize = .zero
 
-    private let bottomAnchorID = "BOTTOM_ANCHOR"
+    @State private var isAtLatest = true
+    @State private var hasDoneInitialScroll = false
+    @State private var jumpToLatestTrigger = 0
+
+    private let topSentinelID = "TOP_SENTINEL"
+    private let latestSentinelID = "LATEST_SENTINEL"
 
     init(conversation: Conversation) {
         self.conversation = conversation
@@ -18,7 +23,7 @@ struct ChatDetailView: View {
 
     var body: some View {
         GeometryReader { outerGeo in
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 Color.appBackground
                     .ignoresSafeArea()
 
@@ -29,27 +34,94 @@ struct ChatDetailView: View {
 
                     ScrollViewReader { proxy in
                         ScrollView(showsIndicators: false) {
-                            VStack(spacing: 0) {
-                                messageStack(maxBubbleWidth: outerGeo.size.width * 0.58)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 24)
-
+                            LazyVStack(spacing: 18) {
                                 Color.clear
                                     .frame(height: 1)
-                                    .id(bottomAnchorID)
+                                    .id(latestSentinelID)
+                                    .flippedUpsideDown()
+                                    .onAppear {
+                                        isAtLatest = true
+                                    }
+                                    .onDisappear {
+                                        isAtLatest = false
+                                    }
+
+                                if viewModel.hasMoreOlderMessages {
+                                    Color.clear
+                                        .frame(height: 1)
+                                        .id(topSentinelID)
+                                        .flippedUpsideDown()
+                                        .onAppear {
+                                            Task {
+                                                await viewModel.loadOlderMessages()
+                                            }
+                                        }
+                                }
+
+                                ForEach(messageSections) { section in
+                                    VStack(spacing: 16) {
+                                        ForEach(section.messages) { message in
+                                            messageRow(
+                                                message,
+                                                maxBubbleWidth: outerGeo.size.width * 0.58
+                                            )
+                                            .id(message.id)
+                                            .flippedUpsideDown()
+                                        }
+
+                                        dateSeparator(section.title)
+                                            .flippedUpsideDown()
+                                    }
+                                }
                             }
+                            .padding(.horizontal, 24)
                             .padding(.bottom, 96)
                         }
-                        .scrollDisabled(dragOffset.width > 10)
+                        .flippedUpsideDown()
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollDismissesKeyboard(.interactively)
                         .onAppear {
-                            scrollToBottom(proxy: proxy, animated: false)
+                            guard !hasDoneInitialScroll else { return }
+                            hasDoneInitialScroll = true
+
+                            DispatchQueue.main.async {
+                                proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                            }
                         }
-                        .onChange(of: viewModel.messages.count) { _ in
-                            scrollToBottom(proxy: proxy, animated: true)
+                        .onChange(of: viewModel.messages.count) { _, _ in
+                            guard isAtLatest else { return }
+
+                            DispatchQueue.main.async {
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                }
+                            }
+                        }
+                        .onChange(of: jumpToLatestTrigger) { _, _ in
+                            DispatchQueue.main.async {
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                }
+                            }
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                                DispatchQueue.main.async {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                    isAtLatest = true
+                                }
+                            }
                         }
                     }
                 }
                 .offset(x: max(0, dragOffset.width))
+
+                if !isAtLatest {
+                    jumpToLatestButton
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 116)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .zIndex(10)
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 composer
@@ -60,6 +132,7 @@ struct ChatDetailView: View {
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
+            .animation(.easeOut(duration: 0.18), value: isAtLatest)
             .contentShape(Rectangle())
             .simultaneousGesture(
                 DragGesture(minimumDistance: 8, coordinateSpace: .local)
@@ -100,7 +173,50 @@ struct ChatDetailView: View {
         }
     }
 
-    // MARK: - Header card
+    private struct MessageSection: Identifiable {
+        let id: Date
+        let title: String
+        let messages: [Message]
+    }
+
+    private var messageSections: [MessageSection] {
+        let grouped = Dictionary(grouping: viewModel.messages) { message in
+            Calendar.current.startOfDay(for: message.sentAt)
+        }
+
+        return grouped
+            .map { day, messages in
+                MessageSection(
+                    id: day,
+                    title: ChatDateFormatter.daySeparatorTitle(for: day),
+                    messages: messages.sorted { $0.sentAt > $1.sentAt }
+                )
+            }
+            .sorted { $0.id > $1.id }
+    }
+
+    private var jumpToLatestButton: some View {
+        Button {
+            jumpToLatestTrigger += 1
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 14, weight: .semibold))
+
+                Text("Latest")
+                    .font(.custom("IntelOneMono-Regular", size: 13))
+            }
+            .foregroundColor(.appForeground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(Color.chatAccent)
+                    .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
     private var profileCard: some View {
         VStack(spacing: 22) {
@@ -131,37 +247,27 @@ struct ChatDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Messages
+    private func dateSeparator(_ text: String) -> some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.18))
+                .frame(height: 1)
 
-    private func messageStack(maxBubbleWidth: CGFloat) -> some View {
-        VStack(spacing: 28) {
-            ForEach(viewModel.messages) { message in
-                messageBubble(message, maxBubbleWidth: maxBubbleWidth)
-            }
+            Text("\(text)")
+                .font(.custom("IntelOneMono-Regular", size: 11))
+                .foregroundColor(.appForeground.opacity(0.72))
+                .fixedSize()
+
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.18))
+                .frame(height: 1)
         }
+        .padding(.vertical, 6)
     }
 
-    @ViewBuilder
-    private func messageBubble(_ message: Message, maxBubbleWidth: CGFloat) -> some View {
+    private func messageRow(_ message: Message, maxBubbleWidth: CGFloat) -> some View {
         HStack {
-            if !message.isFromCurrentUser {
-                // Incoming
-                Text(message.text)
-                    .font(.custom("IntelOneMono-Regular", size: 15))
-                    .foregroundColor(.appBackground)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.appForeground)
-                    )
-                    .frame(maxWidth: maxBubbleWidth, alignment: .leading)
-
-                Spacer(minLength: 48)
-            } else {
-                // Outgoing
+            if message.isFromCurrentUser {
                 Spacer(minLength: 48)
 
                 VStack(alignment: .trailing, spacing: 6) {
@@ -182,30 +288,43 @@ struct ChatDetailView: View {
                         .font(.custom("IntelOneMono-Regular", size: 11))
                         .foregroundColor(.appForeground.opacity(0.65))
                 }
+            } else {
+                Text(message.text)
+                    .font(.custom("IntelOneMono-Regular", size: 15))
+                    .foregroundColor(.appBackground)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.appForeground)
+                    )
+                    .frame(maxWidth: maxBubbleWidth, alignment: .leading)
+
+                Spacer(minLength: 48)
             }
         }
     }
 
     private func statusLine(for message: Message) -> String {
+        let time = ChatDateFormatter.timeString(from: message.sentAt)
+
         guard message.isFromCurrentUser else {
-            return message.timestamp
+            return time
         }
 
-        if let status = message.status {
-            switch status {
-            case .sending:
-                return "\(message.timestamp) • Sending"
-            case .sent:
-                return "\(message.timestamp) • Sent"
-            case .failed:
-                return "\(message.timestamp) • Failed"
-            }
-        } else {
-            return message.timestamp
+        switch message.status {
+        case .sending:
+            return "\(time) • Sending"
+        case .sent:
+            return "\(time) • Sent"
+        case .failed:
+            return "\(time) • Failed"
+        case .none:
+            return time
         }
     }
-
-    // MARK: - Composer
 
     private var composer: some View {
         HStack(spacing: 16) {
@@ -262,22 +381,6 @@ struct ChatDetailView: View {
                 .frame(width: 54, height: 54)
             }
             .disabled(!viewModel.canSendMessage)
-        }
-    }
-
-    // MARK: - Scrolling
-
-    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        guard !viewModel.messages.isEmpty else { return }
-
-        DispatchQueue.main.async {
-            if animated {
-                withAnimation(.easeOut(duration: 0.25)) {
-                    proxy.scrollTo(bottomAnchorID, anchor: .bottom)
-                }
-            } else {
-                proxy.scrollTo(bottomAnchorID, anchor: .bottom)
-            }
         }
     }
 }
