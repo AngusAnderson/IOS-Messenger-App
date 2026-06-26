@@ -21,7 +21,12 @@ struct AppRouter: View {
                 }
             } else if authViewModel.isAuthenticated {
                 NavigationStack {
-                    ChatListView()
+                    ChatListView(
+                        viewModel: ChatListViewModel(
+                            chatService: APIChatService(),
+                            authViewModel: authViewModel
+                        )
+                    )
                 }
             } else {
                 LoginView()

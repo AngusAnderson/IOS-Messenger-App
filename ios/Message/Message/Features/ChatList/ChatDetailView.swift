@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct ChatDetailView: View {
-    let conversation: Conversation
-
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: ChatDetailViewModel
     @GestureState private var dragOffset: CGSize = .zero
@@ -14,11 +12,8 @@ struct ChatDetailView: View {
     private let topSentinelID = "TOP_SENTINEL"
     private let latestSentinelID = "LATEST_SENTINEL"
 
-    init(conversation: Conversation) {
-        self.conversation = conversation
-        _viewModel = StateObject(
-            wrappedValue: ChatDetailViewModel(conversation: conversation)
-        )
+    init(viewModel: ChatDetailViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     var body: some View {
@@ -45,18 +40,6 @@ struct ChatDetailView: View {
                                     .onDisappear {
                                         isAtLatest = false
                                     }
-
-                                if viewModel.hasMoreOlderMessages {
-                                    Color.clear
-                                        .frame(height: 1)
-                                        .id(topSentinelID)
-                                        .flippedUpsideDown()
-                                        .onAppear {
-                                            Task {
-                                                await viewModel.loadOlderMessages()
-                                            }
-                                        }
-                                }
 
                                 ForEach(messageSections) { section in
                                     VStack(spacing: 16) {
@@ -133,43 +116,9 @@ struct ChatDetailView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
             .animation(.easeOut(duration: 0.18), value: isAtLatest)
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .local)
-                    .updating($dragOffset) { value, state, _ in
-                        let startedAtLeftEdge = value.startLocation.x <= 32
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
-
-                        let isRightward = horizontal > 0
-                        let withinFortyFiveDegrees = abs(horizontal) >= abs(vertical)
-
-                        if startedAtLeftEdge && isRightward && withinFortyFiveDegrees {
-                            state = CGSize(width: horizontal, height: 0)
-                        }
-                    }
-                    .onEnded { value in
-                        let startedAtLeftEdge = value.startLocation.x <= 32
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
-                        let predictedHorizontal = value.predictedEndTranslation.width
-                        let predictedVertical = value.predictedEndTranslation.height
-
-                        let isRightward = horizontal > 0
-                        let withinFortyFiveDegreesNow = abs(horizontal) >= abs(vertical)
-                        let withinFortyFiveDegreesPredicted = abs(predictedHorizontal) >= abs(predictedVertical)
-
-                        let passedDistance = horizontal > 44
-                        let passedMomentum = predictedHorizontal > 90
-
-                        if startedAtLeftEdge &&
-                            isRightward &&
-                            (withinFortyFiveDegreesNow || withinFortyFiveDegreesPredicted) &&
-                            (passedDistance || passedMomentum) {
-                            dismiss()
-                        }
-                    }
-            )
+            .task {
+                await viewModel.loadMessages()
+            }
         }
     }
 
@@ -193,6 +142,10 @@ struct ChatDetailView: View {
                 )
             }
             .sorted { $0.id > $1.id }
+    }
+
+    private var conversation: Conversation {
+        viewModel.conversation
     }
 
     private var jumpToLatestButton: some View {
@@ -253,7 +206,7 @@ struct ChatDetailView: View {
                 .fill(Color.appForeground.opacity(0.18))
                 .frame(height: 1)
 
-            Text("\(text)")
+            Text("---- \(text) ----")
                 .font(.custom("IntelOneMono-Regular", size: 11))
                 .foregroundColor(.appForeground.opacity(0.72))
                 .fixedSize()

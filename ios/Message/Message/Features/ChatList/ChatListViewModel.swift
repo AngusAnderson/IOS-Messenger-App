@@ -6,6 +6,18 @@ final class ChatListViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var conversations: [Conversation] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let chatService: ChatServiceProtocol
+    private let authViewModel: AuthViewModel
+
+    init(
+        chatService: ChatServiceProtocol,
+        authViewModel: AuthViewModel
+    ) {
+        self.chatService = chatService
+        self.authViewModel = authViewModel
+    }
 
     var filteredConversations: [Conversation] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,37 +34,43 @@ final class ChatListViewModel: ObservableObject {
     }
 
     func loadConversations() async {
-        guard conversations.isEmpty else { return }
+        guard let token = authViewModel.token else {
+            conversations = []
+            return
+        }
 
         isLoading = true
+        errorMessage = nil
 
-        try? await Task.sleep(nanoseconds: 300_000_000)
+        do {
+            conversations = try await chatService.fetchConversations(token: token)
+        } catch let apiError as APIError {
+            handleAPIError(apiError)
+        } catch {
+            errorMessage = "Couldn't load conversations."
+        }
 
-        conversations = Conversation.mockData
         isLoading = false
     }
 
-//    func messages(for conversation: Conversation) -> [Message] {
-//        if conversation.isGroup {
-//            return [
-//                Message(
-//                    text: "Are we all still good for Tuesday?",
-//                    isFromCurrentUser: false,
-//                    timestamp: "10:11"
-//                ),
-//                Message(
-//                    text: "Yep, I’m in.",
-//                    isFromCurrentUser: true,
-//                    timestamp: "10:13"
-//                ),
-//                Message(
-//                    text: "Perfect, see you then.",
-//                    isFromCurrentUser: false,
-//                    timestamp: "10:14"
-//                )
-//            ]
-//        } else {
-//            return Message.mockConversation
-//        }
-//    }
+    func refreshConversations() async {
+        await loadConversations()
+    }
+
+    func makeDetailViewModel(for conversation: Conversation) -> ChatDetailViewModel {
+        ChatDetailViewModel(
+            conversation: conversation,
+            chatService: chatService,
+            authViewModel: authViewModel
+        )
+    }
+
+    private func handleAPIError(_ error: APIError) {
+        switch error {
+        case .unauthorized:
+            authViewModel.handleUnauthorized()
+        default:
+            errorMessage = error.localizedDescription
+        }
+    }
 }
