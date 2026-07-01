@@ -5,6 +5,8 @@ final class APIClient {
 
     private let baseURL = URL(string: AppConfig.baseURL)!
     private let session: URLSession
+    private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
 
     private init() {
         let configuration = URLSessionConfiguration.default
@@ -13,6 +15,15 @@ final class APIClient {
         configuration.timeoutIntervalForResource = 60
 
         self.session = URLSession(configuration: configuration)
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        self.encoder = encoder
     }
 
     func post<T: Encodable, U: Decodable>(
@@ -25,12 +36,13 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        if let token = token {
+        if let token = token, !token.isEmpty {
             request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        request.httpBody = try JSONEncoder().encode(body)
+        request.httpBody = try encoder.encode(body)
 
         let (data, response) = try await session.data(for: request)
         return try handleResponse(data: data, response: response)
@@ -44,6 +56,7 @@ final class APIClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
@@ -58,9 +71,11 @@ final class APIClient {
         switch httpResponse.statusCode {
         case 200..<300:
             do {
-                return try JSONDecoder().decode(U.self, from: data)
+                return try decoder.decode(U.self, from: data)
+            } catch let error as DecodingError {
+                throw APIError.decodingFailed(Self.describeDecodingError(error, data: data))
             } catch {
-                throw APIError.decodingFailed
+                throw APIError.decodingFailed("Failed to decode server response.")
             }
 
         case 401:
@@ -72,17 +87,20 @@ final class APIClient {
     }
 
     private static func extractErrorMessage(from data: Data) -> String {
-        if let detailResponse = try? JSONDecoder().decode(DRFDetailError.self, from: data) {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        if let detailResponse = try? decoder.decode(DRFDetailError.self, from: data) {
             return detailResponse.detail
         }
 
-        if let simpleError = try? JSONDecoder().decode(SimpleErrorResponse.self, from: data) {
+        if let simpleError = try? decoder.decode(SimpleErrorResponse.self, from: data) {
             return simpleError.error
         }
 
-        if let fieldErrors = try? JSONDecoder().decode([String: [String]].self, from: data) {
-            if let nonFieldErrors = fieldErrors["non_field_errors"], let first = nonFieldErrors.first {
-                return first
+        if let fieldErrors = try? decoder.decode([String: [String]].self, from: data) {
+            if let nonFieldErrors = fieldErrors["nonFieldErrors"]?.first {
+                return nonFieldErrors
             }
 
             let messages = fieldErrors.flatMap { key, values in
@@ -105,12 +123,58 @@ final class APIClient {
 
         return "Something went wrong."
     }
+
+    private static func describeDecodingError(_ error: DecodingError, data: Data) -> String {
+        let rawBody = String(data: data, encoding: .utf8) ?? "<non-utf8 response>"
+
+        switch error {
+        case .typeMismatch(let type, let context):
+            return """
+            Type mismatch for \(type).
+            Path: \(codingPathString(context.codingPath))
+            Debug: \(context.debugDescription)
+            Response: \(rawBody)
+            """
+
+        case .valueNotFound(let type, let context):
+            return """
+            Missing value for \(type).
+            Path: \(codingPathString(context.codingPath))
+            Debug: \(context.debugDescription)
+            Response: \(rawBody)
+            """
+
+        case .keyNotFound(let key, let context):
+            return """
+            Missing key '\(key.stringValue)'.
+            Path: \(codingPathString(context.codingPath))
+            Debug: \(context.debugDescription)
+            Response: \(rawBody)
+            """
+
+        case .dataCorrupted(let context):
+            return """
+            Corrupted data.
+            Path: \(codingPathString(context.codingPath))
+            Debug: \(context.debugDescription)
+            Response: \(rawBody)
+            """
+
+        @unknown default:
+            return "Failed to decode server response. Response: \(rawBody)"
+        }
+    }
+
+    private static func codingPathString(_ codingPath: [CodingKey]) -> String {
+        if codingPath.isEmpty { return "<root>" }
+        return codingPath.map(\.stringValue).joined(separator: ".")
+    }
 }
 
 enum APIError: LocalizedError {
     case invalidResponse
     case unauthorized
-    case decodingFailed
+    case decodingFailed(String)
     case serverError(String)
 
     var errorDescription: String? {
@@ -119,8 +183,8 @@ enum APIError: LocalizedError {
             return "Invalid server response."
         case .unauthorized:
             return "Your session has expired. Please log in again."
-        case .decodingFailed:
-            return "Failed to decode server response."
+        case .decodingFailed(let message):
+            return message
         case .serverError(let message):
             return message
         }

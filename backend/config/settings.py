@@ -13,6 +13,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "192.168.7.4",
     "192.168.4.22",
+    "192.168.4.57",
 ]
 
 INSTALLED_APPS = [
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 
     "accounts",
+    "chat",
 ]
 
 MIDDLEWARE = [
@@ -82,7 +84,8 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+#        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
 }
 

@@ -1,18 +1,24 @@
 import SwiftUI
 
 struct ChatDetailView: View {
-    let conversation: Conversation
-    let messages: [Message]
-
     @Environment(\.dismiss) private var dismiss
-    @State private var draftMessage = ""
+    @StateObject private var viewModel: ChatDetailViewModel
     @GestureState private var dragOffset: CGSize = .zero
 
-    private let bottomAnchorID = "BOTTOM_ANCHOR"
+    @State private var isAtLatest = true
+    @State private var hasDoneInitialScroll = false
+    @State private var jumpToLatestTrigger = 0
+
+    private let topSentinelID = "TOP_SENTINEL"
+    private let latestSentinelID = "LATEST_SENTINEL"
+
+    init(viewModel: ChatDetailViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     var body: some View {
         GeometryReader { outerGeo in
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 Color.appBackground
                     .ignoresSafeArea()
 
@@ -23,27 +29,82 @@ struct ChatDetailView: View {
 
                     ScrollViewReader { proxy in
                         ScrollView(showsIndicators: false) {
-                            VStack(spacing: 0) {
-                                messageStack(maxBubbleWidth: outerGeo.size.width * 0.58)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 24)
-
+                            LazyVStack(spacing: 18) {
                                 Color.clear
                                     .frame(height: 1)
-                                    .id(bottomAnchorID)
+                                    .id(latestSentinelID)
+                                    .flippedUpsideDown()
+                                    .onAppear {
+                                        isAtLatest = true
+                                    }
+                                    .onDisappear {
+                                        isAtLatest = false
+                                    }
+
+                                ForEach(messageSections) { section in
+                                    VStack(spacing: 16) {
+                                        ForEach(section.messages) { message in
+                                            messageRow(
+                                                message,
+                                                maxBubbleWidth: outerGeo.size.width * 0.58
+                                            )
+                                            .id(message.id)
+                                            .flippedUpsideDown()
+                                        }
+
+                                        dateSeparator(section.title)
+                                            .flippedUpsideDown()
+                                    }
+                                }
                             }
+                            .padding(.horizontal, 24)
                             .padding(.bottom, 96)
                         }
-                        .scrollDisabled(dragOffset.width > 10)
+                        .flippedUpsideDown()
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollDismissesKeyboard(.interactively)
                         .onAppear {
-                            scrollToBottom(proxy: proxy, animated: false)
+                            guard !hasDoneInitialScroll else { return }
+                            hasDoneInitialScroll = true
+
+                            DispatchQueue.main.async {
+                                proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                            }
                         }
-                        .onChange(of: messages.count) { _ in
-                            scrollToBottom(proxy: proxy, animated: true)
+                        .onChange(of: viewModel.messages.count) { _, _ in
+                            guard isAtLatest else { return }
+
+                            DispatchQueue.main.async {
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                }
+                            }
+                        }
+                        .onChange(of: jumpToLatestTrigger) { _, _ in
+                            DispatchQueue.main.async {
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                }
+                            }
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                                DispatchQueue.main.async {
+                                    proxy.scrollTo(latestSentinelID, anchor: .bottom)
+                                    isAtLatest = true
+                                }
+                            }
                         }
                     }
                 }
                 .offset(x: max(0, dragOffset.width))
+
+                if !isAtLatest {
+                    jumpToLatestButton
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 116)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .zIndex(10)
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 composer
@@ -54,44 +115,60 @@ struct ChatDetailView: View {
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .local)
-                    .updating($dragOffset) { value, state, _ in
-                        let startedAtLeftEdge = value.startLocation.x <= 32
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
+            .animation(.easeOut(duration: 0.18), value: isAtLatest)
+            .task {
+                await viewModel.loadMessages()
+            }
+        }
+    }
 
-                        let isRightward = horizontal > 0
-                        let withinFortyFiveDegrees = abs(horizontal) >= abs(vertical)
+    private struct MessageSection: Identifiable {
+        let id: Date
+        let title: String
+        let messages: [Message]
+    }
 
-                        if startedAtLeftEdge && isRightward && withinFortyFiveDegrees {
-                            state = CGSize(width: horizontal, height: 0)
-                        }
-                    }
-                    .onEnded { value in
-                        let startedAtLeftEdge = value.startLocation.x <= 32
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
-                        let predictedHorizontal = value.predictedEndTranslation.width
-                        let predictedVertical = value.predictedEndTranslation.height
+    private var messageSections: [MessageSection] {
+        let grouped = Dictionary(grouping: viewModel.messages) { message in
+            Calendar.current.startOfDay(for: message.sentAt)
+        }
 
-                        let isRightward = horizontal > 0
-                        let withinFortyFiveDegreesNow = abs(horizontal) >= abs(vertical)
-                        let withinFortyFiveDegreesPredicted = abs(predictedHorizontal) >= abs(predictedVertical)
+        return grouped
+            .map { day, messages in
+                MessageSection(
+                    id: day,
+                    title: ChatDateFormatter.daySeparatorTitle(for: day),
+                    messages: messages.sorted { $0.sentAt > $1.sentAt }
+                )
+            }
+            .sorted { $0.id > $1.id }
+    }
 
-                        let passedDistance = horizontal > 44
-                        let passedMomentum = predictedHorizontal > 90
+    private var conversation: Conversation {
+        viewModel.conversation
+    }
 
-                        if startedAtLeftEdge &&
-                            isRightward &&
-                            (withinFortyFiveDegreesNow || withinFortyFiveDegreesPredicted) &&
-                            (passedDistance || passedMomentum) {
-                            dismiss()
-                        }
-                    }
+    private var jumpToLatestButton: some View {
+        Button {
+            jumpToLatestTrigger += 1
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 14, weight: .semibold))
+
+                Text("Latest")
+                    .font(.custom("IntelOneMono-Regular", size: 13))
+            }
+            .foregroundColor(.appForeground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(Color.chatAccent)
+                    .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
             )
         }
+        .buttonStyle(.plain)
     }
 
     private var profileCard: some View {
@@ -105,12 +182,12 @@ struct ChatDetailView: View {
                 .frame(width: 60, height: 60)
 
             VStack(spacing: 12) {
-                Text("Jeremy")
-                    .font(.custom("IntelOneMono-light", size: 13))
+                Text(conversation.title)
+                    .font(.custom("IntelOneMono-Light", size: 13))
                     .foregroundColor(.appForeground)
 
                 Text("United Kingdom")
-                    .font(.custom("IntelOneMono-light", size: 10))
+                    .font(.custom("IntelOneMono-Light", size: 10))
                     .foregroundColor(.appForeground.opacity(0.95))
                     .tracking(1)
             }
@@ -123,18 +200,48 @@ struct ChatDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func messageStack(maxBubbleWidth: CGFloat) -> some View {
-        VStack(spacing: 28) {
-            ForEach(messages) { message in
-                messageBubble(message, maxBubbleWidth: maxBubbleWidth)
-            }
+    private func dateSeparator(_ text: String) -> some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.18))
+                .frame(height: 1)
+
+            Text("\(text)")
+                .font(.custom("IntelOneMono-Regular", size: 11))
+                .foregroundColor(.appForeground.opacity(0.72))
+                .fixedSize()
+
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.18))
+                .frame(height: 1)
         }
+        .padding(.vertical, 6)
     }
 
-    @ViewBuilder
-    private func messageBubble(_ message: Message, maxBubbleWidth: CGFloat) -> some View {
+    private func messageRow(_ message: Message, maxBubbleWidth: CGFloat) -> some View {
         HStack {
-            if !message.isFromCurrentUser {
+            if message.isFromCurrentUser {
+                Spacer(minLength: 48)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(message.text)
+                        .font(.custom("IntelOneMono-Regular", size: 15))
+                        .foregroundColor(.appForeground)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.chatAccent)
+                        )
+                        .frame(maxWidth: maxBubbleWidth, alignment: .trailing)
+
+                    Text(statusLine(for: message))
+                        .font(.custom("IntelOneMono-Regular", size: 11))
+                        .foregroundColor(.appForeground.opacity(0.65))
+                }
+            } else {
                 Text(message.text)
                     .font(.custom("IntelOneMono-Regular", size: 15))
                     .foregroundColor(.appBackground)
@@ -149,22 +256,26 @@ struct ChatDetailView: View {
                     .frame(maxWidth: maxBubbleWidth, alignment: .leading)
 
                 Spacer(minLength: 48)
-            } else {
-                Spacer(minLength: 48)
-
-                Text(message.text)
-                    .font(.custom("IntelOneMono-Regular", size: 15))
-                    .foregroundColor(.appForeground)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.chatAccent)
-                    )
-                    .frame(maxWidth: maxBubbleWidth, alignment: .trailing)
             }
+        }
+    }
+
+    private func statusLine(for message: Message) -> String {
+        let time = ChatDateFormatter.timeString(from: message.sentAt)
+
+        guard message.isFromCurrentUser else {
+            return time
+        }
+
+        switch message.status {
+        case .sending:
+            return "\(time) • Sending"
+        case .sent:
+            return "\(time) • Sent"
+        case .failed:
+            return "\(time) • Failed"
+        case .none:
+            return time
         }
     }
 
@@ -189,35 +300,40 @@ struct ChatDetailView: View {
                     .fill(Color.cardBackground)
                     .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
 
-                if draftMessage.isEmpty {
+                if viewModel.draftMessage.isEmpty {
                     Text("Message")
                         .font(.custom("IntelOneMono-Regular", size: 18))
                         .foregroundColor(.appForeground.opacity(0.72))
                         .padding(.horizontal, 18)
                 }
 
-                TextField("", text: $draftMessage)
+                TextField("", text: $viewModel.draftMessage)
                     .textFieldStyle(.plain)
                     .font(.custom("IntelOneMono-Regular", size: 18))
                     .foregroundColor(.appForeground)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 16)
+                    .onSubmit {
+                        viewModel.sendMessage()
+                    }
             }
             .frame(height: 54)
-        }
-    }
 
-    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        guard !messages.isEmpty else { return }
+            Button {
+                viewModel.sendMessage()
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(viewModel.canSendMessage ? Color.chatAccent : Color.cardBackground)
+                        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 6)
 
-        DispatchQueue.main.async {
-            if animated {
-                withAnimation(.easeOut(duration: 0.25)) {
-                    proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.appForeground)
                 }
-            } else {
-                proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                .frame(width: 54, height: 54)
             }
+            .disabled(!viewModel.canSendMessage)
         }
     }
 }

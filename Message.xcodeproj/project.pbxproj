@@ -5874,6 +5874,25 @@
 				accounts/tests.py,
 				accounts/urls.py,
 				accounts/views.py,
+				chat/__init__.py,
+				"chat/__pycache__/__init__.cpython-312.pyc",
+				"chat/__pycache__/admin.cpython-312.pyc",
+				"chat/__pycache__/apps.cpython-312.pyc",
+				"chat/__pycache__/models.cpython-312.pyc",
+				"chat/__pycache__/serializers.cpython-312.pyc",
+				"chat/__pycache__/urls.cpython-312.pyc",
+				"chat/__pycache__/views.cpython-312.pyc",
+				chat/admin.py,
+				chat/apps.py,
+				chat/migrations/__init__.py,
+				"chat/migrations/__pycache__/__init__.cpython-312.pyc",
+				"chat/migrations/__pycache__/0001_initial.cpython-312.pyc",
+				chat/migrations/0001_initial.py,
+				chat/models.py,
+				chat/serializers.py,
+				chat/tests.py,
+				chat/urls.py,
+				chat/views.py,
 				config/__init__.py,
 				"config/__pycache__/__init__.cpython-312.pyc",
 				"config/__pycache__/settings.cpython-312.pyc",
@@ -5901,6 +5920,24 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Message/Message.xcodeproj,
+			);
+			target = 7076B0052FDB062400B35CD0 /* Message */;
+		};
+		70A6437E2FEF0824007C0F7C /* Exceptions for "Custom Font" folder in "Message" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"fonts/Intel_One_Mono/IntelOneMono-Italic-VariableFont_wght.ttf",
+				"fonts/Intel_One_Mono/IntelOneMono-VariableFont_wght.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-Bold.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-BoldItalic.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-Italic.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-Light.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-LightItalic.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-Medium.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-MediumItalic.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-Regular.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-SemiBold.ttf",
+				"fonts/Intel_One_Mono/static/IntelOneMono-SemiBoldItalic.ttf",
 			);
 			target = 7076B0052FDB062400B35CD0 /* Message */;
 		};
@@ -5933,6 +5970,9 @@
 		};
 		70F913A92FE8B14C0087F790 /* Custom Font */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				70A6437E2FEF0824007C0F7C /* Exceptions for "Custom Font" folder in "Message" target */,
+			);
 			path = "Custom Font";
 			sourceTree = "<group>";
 		};
