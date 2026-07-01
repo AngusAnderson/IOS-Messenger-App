@@ -10,21 +10,26 @@ final class APIChatService: ChatServiceProtocol {
         return dtos.map(Conversation.init(from:))
     }
 
-    func fetchMessages(conversationID: UUID, token: String) async throws -> [Message] {
+    func fetchMessages(
+        conversationID: UUID,
+        token: String,
+        currentUserId: Int
+    ) async throws -> [Message] {
         let dtos: [MessageDTO] = try await APIClient.shared.get(
             path: "chat/conversations/\(conversationID.uuidString)/messages/",
             token: token
         )
 
         return dtos
-            .map(Message.init(from:))
+            .map { Message(from: $0, currentUserId: currentUserId) }
             .sorted { $0.sentAt < $1.sentAt }
     }
 
     func sendMessage(
         text: String,
         in conversationID: UUID,
-        token: String
+        token: String,
+        currentUserId: Int
     ) async throws -> Message {
         let dto: MessageDTO = try await APIClient.shared.post(
             path: "chat/conversations/\(conversationID.uuidString)/messages/",
@@ -32,6 +37,6 @@ final class APIChatService: ChatServiceProtocol {
             token: token
         )
 
-        return Message(from: dto)
+        return Message(from: dto, currentUserId: currentUserId)
     }
 }

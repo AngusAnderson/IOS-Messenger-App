@@ -26,10 +26,10 @@ struct Conversation: Identifiable, Hashable {
 
     init(from dto: ConversationDTO) {
         self.id = dto.id
-        self.title = dto.title
-        self.subtitle = dto.subtitle ?? ""
-        self.preview = dto.preview ?? ""
-        self.status = dto.status ?? ""
-        self.isGroup = dto.isGroup
+        self.title = "Conversation"
+        self.subtitle = ""
+        self.preview = dto.lastMessage?.text ?? "No messages yet"
+        self.status = ""
+        self.isGroup = false
     }
 }

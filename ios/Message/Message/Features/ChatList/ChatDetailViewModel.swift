@@ -33,7 +33,8 @@ final class ChatDetailViewModel: ObservableObject {
     }
 
     func loadMessages() async {
-        guard let token = authViewModel.token else {
+        guard let token = authViewModel.token,
+              let currentUserId = authViewModel.currentUser?.id else {
             messages = []
             return
         }
@@ -44,7 +45,8 @@ final class ChatDetailViewModel: ObservableObject {
         do {
             messages = try await chatService.fetchMessages(
                 conversationID: conversation.id,
-                token: token
+                token: token,
+                currentUserId: currentUserId
             )
         } catch let apiError as APIError {
             handleAPIError(apiError)
@@ -62,7 +64,8 @@ final class ChatDetailViewModel: ObservableObject {
     func sendMessage() {
         let trimmed = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSending else { return }
-        guard let token = authViewModel.token else { return }
+        guard let token = authViewModel.token,
+              let currentUserId = authViewModel.currentUser?.id else { return }
 
         let pendingMessage = Message(
             text: trimmed,
@@ -81,7 +84,8 @@ final class ChatDetailViewModel: ObservableObject {
                 let sentMessage = try await chatService.sendMessage(
                     text: trimmed,
                     in: conversation.id,
-                    token: token
+                    token: token,
+                    currentUserId: currentUserId
                 )
 
                 if let index = messages.firstIndex(where: { $0.id == pendingMessage.id }) {

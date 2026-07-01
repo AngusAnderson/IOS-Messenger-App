@@ -5,11 +5,4 @@ struct User: Codable, Identifiable {
     let email: String
     let isActive: Bool
     let createdAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case email
-        case isActive = "is_active"
-        case createdAt = "created_at"
-    }
 }

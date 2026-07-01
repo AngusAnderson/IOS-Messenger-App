@@ -21,21 +21,29 @@ struct Message: Identifiable, Hashable {
         self.status = status
     }
 
-    init(from dto: MessageDTO) {
+    init(from dto: MessageDTO, currentUserId: Int) {
         self.id = dto.id
         self.text = dto.text
-        self.isFromCurrentUser = dto.isFromCurrentUser
-        self.sentAt = dto.sentAt
+        self.isFromCurrentUser = dto.senderId == String(currentUserId)
+        self.sentAt = Self.parseDate(dto.createdAt)
+        self.status = nil
+    }
 
-        switch dto.deliveryStatus?.lowercased() {
-        case "sent":
-            self.status = .sent
-        case "failed":
-            self.status = .failed
-        case "sending":
-            self.status = .sending
-        default:
-            self.status = nil
+    private static func parseDate(_ value: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        if let date = formatter.date(from: value) {
+            return date
         }
+
+        let fallback = ISO8601DateFormatter()
+        fallback.formatOptions = [.withInternetDateTime]
+
+        if let date = fallback.date(from: value) {
+            return date
+        }
+
+        return Date()
     }
 }
