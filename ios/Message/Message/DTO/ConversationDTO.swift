@@ -3,6 +3,7 @@ import Foundation
 struct ConversationDTO: Codable, Identifiable {
     let id: UUID
     let updatedAt: String
+    let displayName: String?
     let lastMessage: MessageDTO?
 }
 

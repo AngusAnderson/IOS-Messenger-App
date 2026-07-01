@@ -26,7 +26,7 @@ struct Conversation: Identifiable, Hashable {
 
     init(from dto: ConversationDTO) {
         self.id = dto.id
-        self.title = "Conversation"
+        self.title = dto.displayName ?? "Conversation"
         self.subtitle = ""
         self.preview = dto.lastMessage?.text ?? "No messages yet"
         self.status = ""
