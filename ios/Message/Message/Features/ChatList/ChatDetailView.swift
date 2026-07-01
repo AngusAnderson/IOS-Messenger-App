@@ -206,7 +206,7 @@ struct ChatDetailView: View {
                 .fill(Color.appForeground.opacity(0.18))
                 .frame(height: 1)
 
-            Text("---- \(text) ----")
+            Text("\(text)")
                 .font(.custom("IntelOneMono-Regular", size: 11))
                 .foregroundColor(.appForeground.opacity(0.72))
                 .fixedSize()

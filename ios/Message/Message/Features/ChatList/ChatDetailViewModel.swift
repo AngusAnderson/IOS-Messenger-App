@@ -33,24 +33,36 @@ final class ChatDetailViewModel: ObservableObject {
     }
 
     func loadMessages() async {
-        guard let token = authViewModel.token,
-              let currentUserId = authViewModel.currentUser?.id else {
+        guard let token = authViewModel.token else {
             messages = []
             return
         }
 
+        let currentUserId = authViewModel.currentUser?.id ?? -1
+
         isLoading = true
         errorMessage = nil
+        
+        print("token:", authViewModel.token as Any)
+        print("currentUserId:", authViewModel.currentUser?.id as Any)
 
         do {
-            messages = try await chatService.fetchMessages(
+            let fetched = try await chatService.fetchMessages(
                 conversationID: conversation.id,
                 token: token,
                 currentUserId: currentUserId
             )
+
+            print("conversation.id:", conversation.id)
+            print("fetched count:", fetched.count)
+            print("fetched messages:", fetched)
+
+            messages = fetched
         } catch let apiError as APIError {
+            print("APIError:", apiError)
             handleAPIError(apiError)
         } catch {
+            print("Unexpected error:", error)
             errorMessage = "Couldn't load messages."
         }
 

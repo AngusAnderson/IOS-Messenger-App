@@ -16,7 +16,7 @@ final class APIChatService: ChatServiceProtocol {
         currentUserId: Int
     ) async throws -> [Message] {
         let dtos: [MessageDTO] = try await APIClient.shared.get(
-            path: "chat/conversations/\(conversationID.uuidString)/messages/",
+            path: "chat/conversations/\(conversationID.uuidString.lowercased())/messages/",
             token: token
         )
 
@@ -32,7 +32,7 @@ final class APIChatService: ChatServiceProtocol {
         currentUserId: Int
     ) async throws -> Message {
         let dto: MessageDTO = try await APIClient.shared.post(
-            path: "chat/conversations/\(conversationID.uuidString)/messages/",
+            path: "chat/conversations/\(conversationID.uuidString.lowercased())/messages/",
             body: SendMessageBody(text: text),
             token: token
         )
