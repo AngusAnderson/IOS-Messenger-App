@@ -31,7 +31,6 @@ class DeviceRegistrationSerializer(serializers.Serializer):
         user = self.context["request"].user
         prekeys_data = validated_data.pop("one_time_prekeys")
 
-        # One device per user for now — replace on re-register
         Device.objects.filter(user=user).delete()
 
         device = Device.objects.create(
@@ -50,3 +49,20 @@ class DeviceRegistrationSerializer(serializers.Serializer):
         ])
 
         return device
+
+
+class PreKeyBundleSerializer(serializers.Serializer):
+    """Read-only bundle returned to Alice so she can run X3DH."""
+    user_id = serializers.UUIDField(source="user.id")
+    identity_public_key = serializers.CharField()
+    signed_prekey = serializers.CharField()
+    one_time_prekey_id = serializers.SerializerMethodField()
+    one_time_prekey = serializers.SerializerMethodField()
+
+    def get_one_time_prekey_id(self, obj):
+        prekey = self.context.get("prekey")
+        return prekey.key_id if prekey else None
+
+    def get_one_time_prekey(self, obj):
+        prekey = self.context.get("prekey")
+        return prekey.public_key if prekey else None

@@ -5868,6 +5868,7 @@
 				accounts/migrations/__init__.py,
 				"accounts/migrations/__pycache__/__init__.cpython-312.pyc",
 				"accounts/migrations/__pycache__/0001_initial.cpython-312.pyc",
+				"accounts/migrations/__pycache__/0002_device_onetimeprekey.cpython-312.pyc",
 				accounts/migrations/0001_initial.py,
 				accounts/models.py,
 				accounts/serializers.py,

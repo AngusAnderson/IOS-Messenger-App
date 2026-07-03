@@ -10,12 +10,13 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import User, EmailOTP
+from .models import User, EmailOTP, Device, OneTimePreKey
 from .serializers import (
     RequestEmailOTPSerializer,
     VerifyEmailOTPSerializer,
     UserSerializer,
     DeviceRegistrationSerializer,
+    PreKeyBundleSerializer,
 )
 
 
@@ -116,3 +117,40 @@ def register_device(request):
         serializer.save()
         return Response({"detail": "Device registered."}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def prekey_bundle(request, user_id):
+    # Can't fetch your own bundle
+    if str(request.user.id) == str(user_id):
+        return Response(
+            {"detail": "Cannot fetch your own prekey bundle."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Get the target user's device
+    device = Device.objects.filter(user__id=user_id).first()
+    if not device:
+        return Response(
+            {"detail": "No device registered for this user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Consume one unused one-time prekey atomically
+    prekey = (
+        OneTimePreKey.objects
+        .select_for_update()
+        .filter(device=device, used=False)
+        .first()
+    )
+
+    if prekey:
+        prekey.used = True
+        prekey.save(update_fields=["used"])
+
+    serializer = PreKeyBundleSerializer(
+        device,
+        context={"prekey": prekey}
+    )
+    return Response(serializer.data, status=status.HTTP_200_OK)

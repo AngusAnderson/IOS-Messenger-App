@@ -38,7 +38,10 @@ final class ChatDetailViewModel: ObservableObject {
             return
         }
 
-        let currentUserId = authViewModel.currentUser?.id ?? -1
+        guard let currentUserId = authViewModel.currentUser?.id else {
+            messages = []
+            return
+        }
 
         isLoading = true
         errorMessage = nil

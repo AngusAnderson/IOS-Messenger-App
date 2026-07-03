@@ -39,7 +39,7 @@ final class IdentityKeyManager {
         keychain.save(data: key.rawRepresentation, account: identityKeyAccount)
     }
 
-    private func loadPrivateKey() throws -> Curve25519.KeyAgreement.PrivateKey {
+    func loadPrivateKey() throws -> Curve25519.KeyAgreement.PrivateKey {
         guard let data = keychain.load(account: identityKeyAccount) else {
             throw CryptoError.keyNotFound
         }

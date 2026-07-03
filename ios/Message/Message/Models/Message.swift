@@ -21,10 +21,10 @@ struct Message: Identifiable, Hashable {
         self.status = status
     }
 
-    init(from dto: MessageDTO, currentUserId: Int) {
+    init(from dto: MessageDTO, currentUserId: String) {
         self.id = dto.id
         self.text = dto.text
-        self.isFromCurrentUser = dto.senderId == String(currentUserId)
+        self.isFromCurrentUser = dto.senderId == currentUserId
         self.sentAt = Self.parseDate(dto.createdAt)
         self.status = nil
     }

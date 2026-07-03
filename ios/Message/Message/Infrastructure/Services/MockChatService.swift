@@ -113,7 +113,7 @@ struct MockChatService: ChatServiceProtocol {
     func fetchMessages(
         conversationID: UUID,
         token: String,
-        currentUserId: Int
+        currentUserId: String
     ) async throws -> [Message] {
         try await Task.sleep(nanoseconds: 250_000_000)
         return await store.messages(for: conversationID)
@@ -123,7 +123,7 @@ struct MockChatService: ChatServiceProtocol {
         text: String,
         in conversationID: UUID,
         token: String,
-        currentUserId: Int
+        currentUserId: String
     ) async throws -> Message {
         try await Task.sleep(nanoseconds: 300_000_000)
 

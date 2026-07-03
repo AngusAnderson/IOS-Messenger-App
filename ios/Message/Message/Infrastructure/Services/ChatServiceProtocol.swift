@@ -6,13 +6,13 @@ protocol ChatServiceProtocol {
     func fetchMessages(
         conversationID: UUID,
         token: String,
-        currentUserId: Int
+        currentUserId: String
     ) async throws -> [Message]
 
     func sendMessage(
         text: String,
         in conversationID: UUID,
         token: String,
-        currentUserId: Int
+        currentUserId: String
     ) async throws -> Message
 }
