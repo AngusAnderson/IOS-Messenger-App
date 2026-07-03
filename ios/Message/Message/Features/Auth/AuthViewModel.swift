@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CryptoKit
 
 @MainActor
 final class AuthViewModel: ObservableObject {
@@ -109,6 +110,7 @@ final class AuthViewModel: ObservableObject {
             didSendCode = false
             code = ""
             errorMessage = nil
+
         } catch {
             errorMessage = error.localizedDescription
         }

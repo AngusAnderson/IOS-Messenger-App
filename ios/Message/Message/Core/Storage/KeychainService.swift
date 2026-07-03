@@ -3,11 +3,28 @@ import Security
 
 final class KeychainService {
     private let service = "com.angus.message"
-    private let account = "auth_token"
+
+    // MARK: - Auth Token (existing)
+
+    private let tokenAccount = "auth_token"
 
     func saveToken(_ token: String) {
         let data = Data(token.utf8)
+        save(data: data, account: tokenAccount)
+    }
 
+    func getToken() -> String? {
+        guard let data = load(account: tokenAccount) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func clearToken() {
+        delete(account: tokenAccount)
+    }
+
+    // MARK: - Raw Data (for crypto keys)
+
+    func save(data: Data, account: String) {
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -19,13 +36,13 @@ final class KeychainService {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: data
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-
         SecItemAdd(addQuery as CFDictionary, nil)
     }
 
-    func getToken() -> String? {
+    func load(account: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -33,26 +50,18 @@ final class KeychainService {
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
-
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-        guard status == errSecSuccess,
-              let data = item as? Data,
-              let token = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-
-        return token
+        guard status == errSecSuccess, let data = item as? Data else { return nil }
+        return data
     }
 
-    func clearToken() {
+    func delete(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-
         SecItemDelete(query as CFDictionary)
     }
 }
