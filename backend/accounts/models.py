@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+import uuid
 
 
 class UserManager(BaseUserManager):
@@ -58,3 +59,35 @@ class EmailOTP(models.Model):
     @staticmethod
     def expiry_time(minutes=10):
         return timezone.now() + timedelta(minutes=minutes)
+
+
+class Device(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="devices"
+    )
+    identity_public_key = models.TextField()
+    signed_prekey = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Device({self.user.email}, {self.id})"
+
+
+class OneTimePreKey(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name="one_time_prekeys"
+    )
+    key_id = models.CharField(max_length=64)
+    public_key = models.TextField()
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"OTPKey({self.device.user.email}, {self.key_id})"

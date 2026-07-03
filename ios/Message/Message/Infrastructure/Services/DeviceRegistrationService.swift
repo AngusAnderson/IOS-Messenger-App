@@ -2,11 +2,13 @@ import Foundation
 import CryptoKit
 
 final class DeviceRegistrationService {
+    
+    static let shared = DeviceRegistrationService()
 
     private let identityKeyManager: IdentityKeyManager
     private let preKeyManager: PreKeyManager
 
-    init(
+    private init(
         identityKeyManager: IdentityKeyManager = IdentityKeyManager(),
         preKeyManager: PreKeyManager = PreKeyManager()
     ) {
@@ -14,7 +16,7 @@ final class DeviceRegistrationService {
         self.preKeyManager = preKeyManager
     }
 
-    func registerDevice() async throws {
+    func registerDevice(token: String) async throws {
         let identityPublicKey = try identityKeyManager.bootstrap()
         let signedPreKeyData = try preKeyManager.generateSignedPreKey()
         let oneTimePreKeys = try preKeyManager.generateOneTimePreKeys(count: 10)
@@ -27,9 +29,10 @@ final class DeviceRegistrationService {
             }
         )
 
-        let _: APIMessageResponse = try await APIClient.shared.post(
-            path: "devices/register/",
-            body: payload
+        let _: EmptyResponse = try await APIClient.shared.post(
+            path: "auth/devices/register/",
+            body: payload,
+            token: token
         )
     }
 }
@@ -46,3 +49,5 @@ private struct OneTimePreKeyPayload: Encodable {
     let id: String
     let publicKey: String
 }
+
+private struct EmptyResponse: Decodable {}

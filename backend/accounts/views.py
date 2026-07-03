@@ -15,6 +15,7 @@ from .serializers import (
     RequestEmailOTPSerializer,
     VerifyEmailOTPSerializer,
     UserSerializer,
+    DeviceRegistrationSerializer,
 )
 
 
@@ -40,12 +41,9 @@ def request_email_otp(request):
         expires_at=EmailOTP.expiry_time(minutes=10),
     )
 
-    subject = "Your login code"
-    message = f"Your verification code is {otp.code}. It expires in 10 minutes."
-
     send_mail(
-        subject,
-        message,
+        "Your login code",
+        f"Your verification code is {otp.code}. It expires in 10 minutes.",
         settings.DEFAULT_FROM_EMAIL,
         [email],
         fail_silently=False,
@@ -105,3 +103,16 @@ def verify_email_otp(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def register_device(request):
+    serializer = DeviceRegistrationSerializer(
+        data=request.data,
+        context={"request": request}
+    )
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"detail": "Device registered."}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
